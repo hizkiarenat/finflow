@@ -8,8 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
-import com.finflow.dto.MonthlySummary;
 import com.finflow.dto.UserStatusCount;
 import com.finflow.model.User;
 
@@ -64,18 +62,5 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             ORDER BY u.created_at DESC
             """, nativeQuery = true)
     List<User> findNewActiveUsers(@Param("days") int days);
-
-    // mengambil user terbaru per bulan
-    @Query(value = """
-            SELECT
-                TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
-                COUNT(*) AS total_registered,
-                COUNT(CASE WHEN status = 'ACTIVE' THEN 1 END) AS total_active
-            FROM users
-            GROUP BY DATE_TRUNC('month', created_at)
-            ORDER BY month DESC
-            LIMIT 12
-            """, nativeQuery = true)
-    List<MonthlySummary> getMonthlyRegistrationSummary();
 
 }
