@@ -1,5 +1,6 @@
 package com.finflow.repository;
 
+import java.lang.StackWalker.Option;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,10 +17,15 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @Query(value = """
             SELECT * FROM users
-            WHERE email = :email 
+            """, nativeQuery = true)
+    List<User> findAllUser();
+
+    @Query(value = """
+            SELECT * FROM users
+            WHERE email ILIKE '%' || :email || '%'
             LIMIT 1
             """, nativeQuery = true)
-    Optional<User> findByEmail(@Param("email")String email);
+    Optional<User> findByEmail(@Param("email") String email);
 
     @Query(value = """
             SELECT EXISTS(SELECT 1 FROM users WHERE email = :email)
@@ -31,7 +37,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             """, nativeQuery = true)
     boolean existsByPhoneNumber(@Param("phoneNumber") String phoneNumber);
 
-    //  mencari user berdasarkan nama/email yang statusnya active
+    // mencari user berdasarkan nama/email yang statusnya active
     @Query(value = """
             SELECT * FROM users
             WHERE status = 'ACTIVE'
@@ -52,7 +58,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             """, nativeQuery = true)
     List<UserStatusCount> countUsersByStatus();
 
-    // cari user dalam rentang waktu tertentu dan user yang statusny blm pernah dinonaktifkan
+    // cari user dalam rentang waktu tertentu dan user yang statusny blm pernah
+    // dinonaktifkan
     @Query(value = """
             SELECT * FROM users u
             WHERE u.created_at >= CURRENT_DATE - INTERVAL ':days days'

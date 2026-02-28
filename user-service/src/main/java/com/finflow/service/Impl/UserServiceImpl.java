@@ -1,5 +1,6 @@
 package com.finflow.service.Impl;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    // createUser
     @Override
     @Transactional
     public UserResponse register(RegisterRequest request) {
@@ -52,6 +54,7 @@ public class UserServiceImpl implements UserService {
                 .phoneNumber(request.getPhoneNumber())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .status(User.UserStatus.ACTIVE)
+                .createdAt(LocalDateTime.now())
                 .build();
 
         User savedUser = userRepository.save(userNew);
@@ -60,6 +63,7 @@ public class UserServiceImpl implements UserService {
         return UserResponse.fromEntity(savedUser);
     }
 
+    // updateUser
     @Override
     @Transactional
     public UserResponse updateUser(UUID id, UpdateUserRequest request) {
@@ -77,6 +81,7 @@ public class UserServiceImpl implements UserService {
         return UserResponse.fromEntity(userRepository.save(user));
     }
 
+    // deleteUser
     @Override
     @Transactional
     public void deactivateUser(UUID id) {
@@ -87,6 +92,7 @@ public class UserServiceImpl implements UserService {
         userRepository.save(user);
     }
 
+    // getUserByEmail
     @Override
     @Transactional(readOnly = true)
     public UserResponse getUserByEmail(String email) {
@@ -95,6 +101,7 @@ public class UserServiceImpl implements UserService {
         return UserResponse.fromEntity(user);
     }
 
+    // getUserById
     @Override
     @Transactional(readOnly = true)
     public UserResponse getUserById(UUID id) {
@@ -103,6 +110,7 @@ public class UserServiceImpl implements UserService {
         return UserResponse.fromEntity(user);
     }
 
+    // getUserSummary
     @Override
     @Transactional(readOnly = true)
     public Map<String, Long> getUserStatusSummary() {
@@ -113,6 +121,7 @@ public class UserServiceImpl implements UserService {
                         UserStatusCount::getTotal));
     }
 
+    // getUserByEmail/Name
     @Override
     @Transactional(readOnly = true)
     public List<UserResponse> searchUsers(String keyword) {
@@ -124,6 +133,31 @@ public class UserServiceImpl implements UserService {
                 .map(UserResponse::fromEntity)
                 .sorted(Comparator.comparing(UserResponse::getFullName))
                 .collect(Collectors.toList());
+    }
+
+    // getAllData
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserResponse> findAllUser() {
+        List<User> users = userRepository.findAllUser();
+        if(users.isEmpty()) {
+            throw new UserNotFoundException("User Data is empty!");
+        }
+        return userRepository.findAllUser()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    private UserResponse toResponse(User user) {
+        return UserResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
+                .status(user.getStatus().name())
+                .createdAt(user.getCreatedAt())
+                .build();
     }
 
 }

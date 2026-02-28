@@ -23,5 +23,7 @@ public interface UserService {
     List<UserResponse> searchUsers(String keyword);
 
     Map<String, Long> getUserStatusSummary();
+
+    List<UserResponse> findAllUser();
     
 }
