@@ -33,7 +33,6 @@ public class Account {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
