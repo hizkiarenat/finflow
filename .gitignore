@@ -1,0 +1,18 @@
+# Maven
+target/
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Environment / Secret
+*.env
+application-prod.yml
+
+# OS
+.DS_Store
+Thumbs.db
