@@ -1,0 +1,177 @@
+version: '3.8'
+
+services:
+
+  # ============================================================
+  # DATABASES
+  # ============================================================
+
+  user-db:
+    image: postgres:15-alpine
+    container_name: finflow-user-db
+    environment:
+      POSTGRES_DB: finflow_users
+      POSTGRES_USER: finflow
+      POSTGRES_PASSWORD: finflow123
+    volumes:
+      - user-db-data:/var/lib/postgresql/data
+    networks:
+      - finflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finflow -d finflow_users"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  account-db:
+    image: postgres:15-alpine
+    container_name: finflow-account-db
+    environment:
+      POSTGRES_DB: finflow_accounts
+      POSTGRES_USER: finflow
+      POSTGRES_PASSWORD: finflow123
+    volumes:
+      - account-db-data:/var/lib/postgresql/data
+    networks:
+      - finflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finflow -d finflow_accounts"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  transaction-db:
+    image: postgres:15-alpine
+    container_name: finflow-transaction-db
+    environment:
+      POSTGRES_DB: finflow_transactions
+      POSTGRES_USER: finflow
+      POSTGRES_PASSWORD: finflow123
+    volumes:
+      - transaction-db-data:/var/lib/postgresql/data
+    networks:
+      - finflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finflow -d finflow_transactions"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  notification-db:
+    image: postgres:15-alpine
+    container_name: finflow-notification-db
+    environment:
+      POSTGRES_DB: finflow_notifications
+      POSTGRES_USER: finflow
+      POSTGRES_PASSWORD: finflow123
+    volumes:
+      - notification-db-data:/var/lib/postgresql/data
+    networks:
+      - finflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finflow -d finflow_notifications"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # MICROSERVICES
+  # ============================================================
+
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: finflow-user-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://user-db:5432/finflow_users
+      SPRING_DATASOURCE_USERNAME: finflow
+      SPRING_DATASOURCE_PASSWORD: finflow123
+    depends_on:
+      user-db:
+        condition: service_healthy
+    networks:
+      - finflow-network
+
+  account-service:
+    build:
+      context: ./account-service
+      dockerfile: Dockerfile
+    container_name: finflow-account-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://account-db:5432/finflow_accounts
+      SPRING_DATASOURCE_USERNAME: finflow
+      SPRING_DATASOURCE_PASSWORD: finflow123
+      USER_SERVICE_URL: http://user-service:1000
+    depends_on:
+      account-db:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+    networks:
+      - finflow-network
+
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: finflow-notification-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://notification-db:5432/finflow_notifications
+      SPRING_DATASOURCE_USERNAME: finflow
+      SPRING_DATASOURCE_PASSWORD: finflow123
+    depends_on:
+      notification-db:
+        condition: service_healthy
+    networks:
+      - finflow-network
+
+  transaction-service:
+    build:
+      context: ./transaction-service
+      dockerfile: Dockerfile
+    container_name: finflow-transaction-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://transaction-db:5432/finflow_transactions
+      SPRING_DATASOURCE_USERNAME: finflow
+      SPRING_DATASOURCE_PASSWORD: finflow123
+      ACCOUNT_SERVICE_URL: http://account-service:2000
+      NOTIFICATION_SERVICE_URL: http://notification-service:4000
+    depends_on:
+      transaction-db:
+        condition: service_healthy
+      account-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+    networks:
+      - finflow-network
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: finflow-api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - user-service
+      - account-service
+      - transaction-service
+      - notification-service
+    networks:
+      - finflow-network
+
+# ============================================================
+# VOLUMES & NETWORKS
+# ============================================================
+
+volumes:
+  user-db-data:
+  account-db-data:
+  transaction-db-data:
+  notification-db-data:
+
+networks:
+  finflow-network:
+    driver: bridge
