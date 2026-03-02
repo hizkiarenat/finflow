@@ -8,33 +8,32 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.finflow.model.Account;
-
-import feign.Param;
 
 @Repository
 public interface AccountRepository extends JpaRepository<Account, UUID> {
 
     // Cari rekening berdasarkan nomor rekening
     @Query(value = """
-            SELECT * FROM account
+            SELECT * FROM accounts
             WHERE account_number = :accountNumber
             """, nativeQuery = true)
     Optional<Account> findByAccountNumber(@Param("accountNumber") String accountNumber);
 
     // Cari semua rekening milik satu user
     @Query(value = """
-            SELECT * FROM account
+            SELECT * FROM accounts
             WHERE user_id = :userId
             """, nativeQuery = true)
     List<Account> findByUserId(@Param("userId") UUID userId);
 
     // Cek apakah nomor rekening sudah ada
     @Query(value = """
-            SELECT COUNT(*)
-            FROM account
+            SELECT COUNT(*) > 0
+            FROM accounts
             WHERE account_number = :accountNumber
             """, nativeQuery = true)
     boolean existsByAccountNumber(String accountNumber);
