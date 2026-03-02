@@ -71,6 +71,7 @@ public class TransactionServiceImpl implements TransactionService {
                 .type(Transaction.TransactionType.TRANSFER)
                 .status(Transaction.TransactionStatus.SUCCESS)
                 .description(request.getDescription())
+                .createdAt(LocalDateTime.now())
                 .build();
 
         Transaction saved = transactionRepository.save(transaction);
