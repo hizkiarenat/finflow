@@ -56,7 +56,7 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
     List<Object[]> getTotalBalanceByUserId(@Param("userId") UUID userId);
 
     // Update saldo rekening
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
             UPDATE accounts
             SET balance    = balance + :amount,
