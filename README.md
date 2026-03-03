@@ -36,8 +36,8 @@ FinFlow is a backend system that simulates core banking features such as user re
 | Spring Boot 3.2 | Application Framework |
 | Spring Cloud Gateway | API Gateway & Routing |
 | Spring Cloud OpenFeign | Inter-service Communication |
-| Spring Data JPA | ORM & Database Access |
-| PostgreSQL | Relational Database |
+| Repository | Native Query|
+| PostgreSQL | Relational Database & Database Access |
 | Docker & Docker Compose | Containerization |
 | Maven | Build Tool |
 | Lombok | Boilerplate Reduction |
