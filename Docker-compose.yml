@@ -83,13 +83,13 @@ services:
   # ============================================================
   # MICROSERVICES
   # ============================================================
-
   user-service:
     build:
       context: ./user-service
       dockerfile: Dockerfile
     container_name: finflow-user-service
     environment:
+      TZ: Asia/Jakarta
       SPRING_DATASOURCE_URL: jdbc:postgresql://user-db:5432/finflow_users
       SPRING_DATASOURCE_USERNAME: finflow
       SPRING_DATASOURCE_PASSWORD: finflow123
@@ -105,6 +105,7 @@ services:
       dockerfile: Dockerfile
     container_name: finflow-account-service
     environment:
+      TZ: Asia/Jakarta
       SPRING_DATASOURCE_URL: jdbc:postgresql://account-db:5432/finflow_accounts
       SPRING_DATASOURCE_USERNAME: finflow
       SPRING_DATASOURCE_PASSWORD: finflow123
@@ -123,12 +124,19 @@ services:
       dockerfile: Dockerfile
     container_name: finflow-notification-service
     environment:
+      TZ: Asia/Jakarta
       SPRING_DATASOURCE_URL: jdbc:postgresql://notification-db:5432/finflow_notifications
       SPRING_DATASOURCE_USERNAME: finflow
       SPRING_DATASOURCE_PASSWORD: finflow123
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672     
+      SPRING_RABBITMQ_USERNAME: finflow
+      SPRING_RABBITMQ_PASSWORD: finflow123
     depends_on:
       notification-db:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy 
     networks:
       - finflow-network
 
@@ -138,11 +146,15 @@ services:
       dockerfile: Dockerfile
     container_name: finflow-transaction-service
     environment:
+      TZ: Asia/Jakarta
       SPRING_DATASOURCE_URL: jdbc:postgresql://transaction-db:5432/finflow_transactions
       SPRING_DATASOURCE_USERNAME: finflow
       SPRING_DATASOURCE_PASSWORD: finflow123
       ACCOUNT_SERVICE_URL: http://account-service:2000
-      NOTIFICATION_SERVICE_URL: http://notification-service:4000
+      SPRING_RABBITMQ_HOST: rabbitmq       
+      SPRING_RABBITMQ_PORT: 5672           
+      SPRING_RABBITMQ_USERNAME: finflow    
+      SPRING_RABBITMQ_PASSWORD: finflow123     
     depends_on:
       transaction-db:
         condition: service_healthy
@@ -150,6 +162,8 @@ services:
         condition: service_started
       notification-service:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy 
     networks:
       - finflow-network
 
@@ -167,6 +181,24 @@ services:
       - notification-service
     networks:
       - finflow-network
+
+  # MessageQueue RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: finflow-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: finflow
+      RABBITMQ_DEFAULT_PASS: finflow123
+    ports:
+      - "5672:5672"    # untuk aplikasi
+      - "15672:15672"  # untuk monitoring UI
+    networks:
+      - finflow-network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 # ============================================================
 # VOLUMES & NETWORKS
