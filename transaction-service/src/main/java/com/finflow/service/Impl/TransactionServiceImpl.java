@@ -12,14 +12,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.finflow.client.AccountClient;
-import com.finflow.client.NotificationClient;
 import com.finflow.dto.AccountResponse;
 import com.finflow.dto.ApiResponse;
 import com.finflow.dto.DepositRequest;
-import com.finflow.dto.NotificationRequest;
 import com.finflow.dto.TransactionResponse;
 import com.finflow.dto.TransferRequest;
 import com.finflow.exception.TransactionException;
+import com.finflow.messaging.NotificationEvent;
+import com.finflow.messaging.NotificationPublisher;
 import com.finflow.model.Transaction;
 import com.finflow.repository.TransactionRepository;
 import com.finflow.service.TransactionService;
@@ -34,7 +34,7 @@ public class TransactionServiceImpl implements TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final AccountClient accountClient;
-    private final NotificationClient notificationClient;
+    private final NotificationPublisher notificationPublisher;
 
     // transfer antar rekening
     @Override
@@ -103,6 +103,7 @@ public class TransactionServiceImpl implements TransactionService {
                 .type(Transaction.TransactionType.DEPOSIT)
                 .status(Transaction.TransactionStatus.SUCCESS)
                 .description(request.getDescription() != null ? request.getDescription() : "DEPOSIT")
+                .createdAt(LocalDateTime.now())
                 .build();
 
         Transaction saved = transactionRepository.save(transaction);
@@ -125,7 +126,7 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     // ringkasan transaksi per tipe
-   @Override
+    @Override
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getSummary(UUID accountId) {
         return transactionRepository.getSummaryByAccountId(accountId)
@@ -159,8 +160,8 @@ public class TransactionServiceImpl implements TransactionService {
     // -------------------------------------------------------
     private void sendNotification(UUID userId, String title, String message, String type) {
         try {
-            notificationClient.sendNotification(
-                    NotificationRequest.builder()
+            notificationPublisher.publish(
+                    NotificationEvent.builder()
                             .userId(userId)
                             .title(title)
                             .message(message)
