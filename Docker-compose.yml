@@ -5,19 +5,19 @@ services:
   # ============================================================
 
   redis:
-      image: redis:7-alpine
-      container_name: finflow-redis
-      ports:
-        - "6379:6379"
-      networks:
-        - finflow-network
-      volumes:
-        - redis-data:/data
-      healthcheck:
-        test: ["CMD", "redis-cli", "ping"]
-        interval: 10s
-        timeout: 5s
-        retries: 5
+    image: redis:7-alpine
+    container_name: finflow-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - finflow-network
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   user-db:
     image: postgres:15-alpine
@@ -31,9 +31,9 @@ services:
     networks:
       - finflow-network
     ports:
-    - "5433:5432"
+      - "5433:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U finflow -d finflow_users"]
+      test: [ "CMD-SHELL", "pg_isready -U finflow -d finflow_users" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -50,9 +50,9 @@ services:
     networks:
       - finflow-network
     ports:
-    - "5434:5432"
+      - "5434:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U finflow -d finflow_accounts"]
+      test: [ "CMD-SHELL", "pg_isready -U finflow -d finflow_accounts" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -69,9 +69,9 @@ services:
     networks:
       - finflow-network
     ports:
-    - "5435:5432"
+      - "5435:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U finflow -d finflow_transactions"]
+      test: [ "CMD-SHELL", "pg_isready -U finflow -d finflow_transactions" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -88,9 +88,9 @@ services:
     networks:
       - finflow-network
     ports:
-    - "5436:5432"
+      - "5436:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U finflow -d finflow_notifications"]
+      test: [ "CMD-SHELL", "pg_isready -U finflow -d finflow_notifications" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -110,6 +110,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: finflow123
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
     depends_on:
       user-db:
         condition: service_healthy
@@ -152,14 +154,14 @@ services:
       SPRING_DATASOURCE_USERNAME: finflow
       SPRING_DATASOURCE_PASSWORD: finflow123
       SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_PORT: 5672     
+      SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: finflow
       SPRING_RABBITMQ_PASSWORD: finflow123
     depends_on:
       notification-db:
         condition: service_healthy
       rabbitmq:
-        condition: service_healthy 
+        condition: service_healthy
     networks:
       - finflow-network
 
@@ -174,10 +176,10 @@ services:
       SPRING_DATASOURCE_USERNAME: finflow
       SPRING_DATASOURCE_PASSWORD: finflow123
       ACCOUNT_SERVICE_URL: http://account-service:2000
-      SPRING_RABBITMQ_HOST: rabbitmq       
-      SPRING_RABBITMQ_PORT: 5672           
-      SPRING_RABBITMQ_USERNAME: finflow    
-      SPRING_RABBITMQ_PASSWORD: finflow123     
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: finflow
+      SPRING_RABBITMQ_PASSWORD: finflow123
     depends_on:
       transaction-db:
         condition: service_healthy
@@ -186,7 +188,7 @@ services:
       notification-service:
         condition: service_started
       rabbitmq:
-        condition: service_healthy 
+        condition: service_healthy
     networks:
       - finflow-network
 
@@ -195,6 +197,8 @@ services:
       context: ./api-gateway
       dockerfile: Dockerfile
     container_name: finflow-api-gateway
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
     ports:
       - "8080:8080"
     depends_on:
@@ -213,8 +217,8 @@ services:
       RABBITMQ_DEFAULT_USER: finflow
       RABBITMQ_DEFAULT_PASS: finflow123
     ports:
-      - "5672:5672"    # untuk aplikasi
-      - "15672:15672"  # untuk monitoring UI
+      - "5672:5672" # untuk aplikasi
+      - "15672:15672" # untuk monitoring UI
     networks:
       - finflow-network
     healthcheck:
@@ -233,6 +237,7 @@ volumes:
   account-db-data:
   transaction-db-data:
   notification-db-data:
+
 
 networks:
   finflow-network:
