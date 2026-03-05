@@ -4,6 +4,21 @@ services:
   # DATABASES
   # ============================================================
 
+  redis:
+      image: redis:7-alpine
+      container_name: finflow-redis
+      ports:
+        - "6379:6379"
+      networks:
+        - finflow-network
+      volumes:
+        - redis-data:/data
+      healthcheck:
+        test: ["CMD", "redis-cli", "ping"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+
   user-db:
     image: postgres:15-alpine
     container_name: finflow-user-db
@@ -93,8 +108,12 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://user-db:5432/finflow_users
       SPRING_DATASOURCE_USERNAME: finflow
       SPRING_DATASOURCE_PASSWORD: finflow123
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
     depends_on:
       user-db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - finflow-network
@@ -110,11 +129,15 @@ services:
       SPRING_DATASOURCE_USERNAME: finflow
       SPRING_DATASOURCE_PASSWORD: finflow123
       USER_SERVICE_URL: http://user-service:1000
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
     depends_on:
       account-db:
         condition: service_healthy
       user-service:
         condition: service_started
+      redis:
+        condition: service_healthy
     networks:
       - finflow-network
 
@@ -205,6 +228,7 @@ services:
 # ============================================================
 
 volumes:
+  redis-data:
   user-db-data:
   account-db-data:
   transaction-db-data:

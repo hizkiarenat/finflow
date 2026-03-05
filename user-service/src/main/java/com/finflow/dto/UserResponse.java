@@ -1,16 +1,23 @@
 package com.finflow.dto;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 import com.finflow.model.User;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Builder
 @Data
-public class UserResponse {
+@NoArgsConstructor
+@AllArgsConstructor
+public class UserResponse implements Serializable{
+
+    private static final long serialVersionUID = 1L;
 
     private UUID id;
     private String fullName;

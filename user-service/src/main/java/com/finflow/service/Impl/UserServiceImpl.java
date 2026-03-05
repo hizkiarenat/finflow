@@ -1,5 +1,6 @@
 package com.finflow.service.Impl;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
@@ -7,6 +8,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,11 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RedisTemplate<String, Object> redisTemplate;
+
+    private static final String CACHE_BY_ID = "user:id:";
+    private static final String CACHE_BY_EMAIL = "user:email:";
+    private static final Duration CACHE_TTL = Duration.ofMinutes(10);
 
     // createUser
     @Override
@@ -78,7 +85,12 @@ public class UserServiceImpl implements UserService {
                 user.setPhoneNumber(request.getPhoneNumber());
             }
         }
-        return UserResponse.fromEntity(userRepository.save(user));
+        UserResponse response = UserResponse.fromEntity(userRepository.save(user));
+
+        // Invalidate cache karena data user sudah berubah
+        invalidateCache(id, user.getEmail());
+
+        return response;
     }
 
     // deleteUser
@@ -90,24 +102,57 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new UserNotFoundException("User not found with id " + id));
         user.setStatus(User.UserStatus.INACTIVE);
         userRepository.save(user);
+
+        // invalidate cache karena status user sudah berubah
+        invalidateCache(id, user.getEmail());
     }
 
     // getUserByEmail
     @Override
     @Transactional(readOnly = true)
     public UserResponse getUserByEmail(String email) {
+        
+        // cek redis dulu
+        String cacheKey = CACHE_BY_EMAIL + email;
+        UserResponse cached = (UserResponse) redisTemplate.opsForValue().get(cacheKey);
+        if (cached != null) {
+            log.info("Cache HIT - email: {}", email);
+            return cached;
+        }
+
+        // cache MISS - query to DB
         User user = userRepository.findByEmail(email.toLowerCase())
                 .orElseThrow(() -> new UserNotFoundException("User not found with email: " + email));
-        return UserResponse.fromEntity(user);
+        UserResponse response = UserResponse.fromEntity(user);
+
+        // simpan ke Redis dengan TTL
+        redisTemplate.opsForValue().set(cacheKey, response, CACHE_TTL);
+        log.info("Cache SET -    email: {}", email);
+        return response;
     }
 
     // getUserById
     @Override
     @Transactional(readOnly = true)
     public UserResponse getUserById(UUID id) {
+
+        // cek Redis dulu
+        String cacheKey = CACHE_BY_ID + id;
+        UserResponse cached = (UserResponse) redisTemplate.opsForValue().get(cacheKey);
+        if (cached != null) {
+            log.info("Cache HIT - userId: {}", id);
+            return cached;
+        }
+
+        // cache MISS - query to DB
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException("User not found with id: " + id));
-        return UserResponse.fromEntity(user);
+        UserResponse response =  UserResponse.fromEntity(user);
+
+        // simpan ke Redis dengan TTL
+        redisTemplate.opsForValue().set(cacheKey, response, CACHE_TTL);
+        log.info("CACHE SET - userId: {}", id);
+        return response;
     }
 
     // getUserSummary
@@ -140,7 +185,7 @@ public class UserServiceImpl implements UserService {
     @Transactional(readOnly = true)
     public List<UserResponse> findAllUser() {
         List<User> users = userRepository.findAllUser();
-        if(users.isEmpty()) {
+        if (users.isEmpty()) {
             throw new UserNotFoundException("User Data is empty!");
         }
         return userRepository.findAllUser()
@@ -160,4 +205,12 @@ public class UserServiceImpl implements UserService {
                 .build();
     }
 
+    // -------------------------------------------------------
+    // Helper: invalidate semua cache yang berkaitan dengan rekening (entah credit/debit)
+    // -------------------------------------------------------
+    private void invalidateCache(UUID id, String email) {
+        redisTemplate.delete(CACHE_BY_ID + id);
+        redisTemplate.delete(CACHE_BY_EMAIL + email);
+        log.info("Cache invalidated for userId: {}", id);
+    }
 }

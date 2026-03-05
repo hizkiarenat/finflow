@@ -1,12 +1,14 @@
 package com.finflow.service.Impl;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +33,11 @@ import lombok.extern.slf4j.Slf4j;
 public class AccountServiceImpl implements AccountService {
     private final AccountRepository accountRepository;
     private final UserClient userClient;
+    private final RedisTemplate<String, Object> redisTemplate;
+
+    private static final String CACHE_BY_ID = "account:id:";
+    private static final String CACHE_BY_NUMBER = "account:number:";
+    private static final Duration CACHE_TTL = Duration.ofMinutes(10);
 
     // -------------------------------------------------------
     // Buka rekening baru
@@ -42,7 +49,7 @@ public class AccountServiceImpl implements AccountService {
         ApiResponse<UserResponse> userResponse = userClient.getUserById(request.getUserId());
 
         // validasi user ada di User service via Feign client
-        if (userResponse == null && !userResponse.isSuccess()) {
+        if (userResponse == null || !userResponse.isSuccess()) {
             throw new IllegalArgumentException("User not found! " + request.getUserId());
         }
 
@@ -74,10 +81,26 @@ public class AccountServiceImpl implements AccountService {
     @Override
     @Transactional(readOnly = true)
     public AccountResponse getAccountById(UUID id) {
+        String cacheKey = CACHE_BY_ID + id;
+        // cek redis dulu ada tidak?
+        AccountResponse cached = (AccountResponse) redisTemplate.opsForValue().get(cacheKey);
+        if (cached != null) {
+            log.info("Cache HIT - accountId : {}", id);
+            return cached;
+        }
+
+        // jika tidak ada cache - query to DB
+        log.info("Cache MISS - accountId : {}, querying DB", id);
         Account account = accountRepository.findById(id)
                 .orElseThrow(() -> new AccountNotFoundException(
                         "Account not found with id: " + id));
-        return AccountResponse.fromEntity(account);
+        AccountResponse response = AccountResponse.fromEntity(account);
+
+        // simpan redis dengan TTL
+        redisTemplate.opsForValue().set(cacheKey, response, CACHE_TTL);
+        log.info("Cache SET - id: {}", id);
+
+        return response;
     }
 
     // -------------------------------------------------------
@@ -86,10 +109,25 @@ public class AccountServiceImpl implements AccountService {
     @Override
     @Transactional(readOnly = true)
     public AccountResponse getAccountByNumber(String accountNumber) {
+        // cek redis dulu
+        String cacheKey = CACHE_BY_NUMBER + accountNumber;
+        AccountResponse cached = (AccountResponse) redisTemplate.opsForValue().get(cacheKey);
+        if (cached != null) {
+            log.info("Cache HIT - accountNumber: {}", accountNumber);
+            return cached;
+        }
+
+        // cache MISS - query to DB
         Account account = accountRepository.findByAccountNumber(accountNumber)
                 .orElseThrow(() -> new AccountNotFoundException(
                         "Account not found with number: " + accountNumber));
-        return AccountResponse.fromEntity(account);
+        AccountResponse response = AccountResponse.fromEntity(account);
+
+        // simpan ke redis dengan TTL
+        redisTemplate.opsForValue().set(cacheKey, response, CACHE_TTL);
+        log.info("Cache SET - accountNumber: {}", accountNumber);
+
+        return response;
     }
 
     // -------------------------------------------------------
@@ -124,6 +162,9 @@ public class AccountServiceImpl implements AccountService {
         // update saldo
         accountRepository.updateBalance(accountId, request.getAmount());
 
+        // Hapus cache karena saldo sudah berubah
+        invalidatCache(accountId, account.getAccountNumber());
+
         // return data terbaru
         return AccountResponse.fromEntity(
                 accountRepository.findById(accountId).orElseThrow());
@@ -150,6 +191,18 @@ public class AccountServiceImpl implements AccountService {
         }
 
         accountRepository.updateBalance(accountId, amount);
+        invalidatCache(accountId, account.getAccountNumber());
+        log.info("Balance updated and cache invalidated for accountId: {}", accountId);
+
+    }
+
+    // -------------------------------------------------------
+    // Helper: invalidate semua cache yang berkaitan dengan rekening (entah credit/debit)
+    // -------------------------------------------------------
+    private void invalidatCache(UUID accountId, String accountNumber) {
+        redisTemplate.delete(CACHE_BY_ID + accountId);
+        redisTemplate.delete(CACHE_BY_NUMBER + accountNumber);
+        log.info("Cache invalidated for accountId: {}", accountId);
     }
 
     // -------------------------------------------------------
