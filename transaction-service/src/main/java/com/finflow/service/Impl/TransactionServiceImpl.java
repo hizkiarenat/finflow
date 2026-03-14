@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +17,7 @@ import com.finflow.client.AccountClient;
 import com.finflow.dto.AccountResponse;
 import com.finflow.dto.ApiResponse;
 import com.finflow.dto.DepositRequest;
+import com.finflow.dto.PageResponse;
 import com.finflow.dto.TransactionResponse;
 import com.finflow.dto.TransferRequest;
 import com.finflow.exception.TransactionException;
@@ -123,6 +126,15 @@ public class TransactionServiceImpl implements TransactionService {
                 .stream()
                 .map(TransactionResponse::fromEntity)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<TransactionResponse> getHistoryPaged(UUID accountId, Pageable pageable) {
+        Page<TransactionResponse> page = transactionRepository
+                .findTransactionHistoryPaged(accountId, pageable)
+                .map(TransactionResponse::fromEntity);
+        return PageResponse.of(page);
     }
 
     // ringkasan transaksi per tipe
